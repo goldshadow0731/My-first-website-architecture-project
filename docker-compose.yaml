@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  server:
+    image: python:3.9.7
+    container_name: Server
+    restart: always
+    depends_on:
+      - brocker
+      - db
+    networks:
+      - net
+    ports:
+      - 5000:5000
+    env_file:
+      - .env
+    environment:
+      # ---------- AMQP ----------
+      - AMQP_SERVER=amqp # RabbitMQ
+      # - AMQP_SERVER=redis # Redis
+      - AMQP_USER=guest # RabbitMQ
+      # - AMQP_USER=default # Redis
+      - AMQP_PASSWORD=guest # RabbitMQ
+      # - AMQP_PASSWORD= # Redis
+      - AMQP_HOST=brocker # RabbitMQ, Redis
+      - AMQP_PORT=5672 # RabbitMQ
+      # - AMQP_PORT=6379 # Redis
+      - AMQP_DB= # RabbitMQ
+      # - AMQP_DB=0 # Redis
+      # ---------- DB ----------
+      - DB_SERVER=postgresql # PostgreSQL
+      # - DB_SERVER=mysql+pymysql # MariaDB, MySQL
+      - DB_USER=postgres # PostgreSQL
+      # - DB_USER=root # MariaDB, MySQL
+      - DB_PASSWORD=rootroot # PostgreSQL, MariaDB, MySQL
+      - DB_HOST=db # PostgreSQL, MariaDB, MySQL
+      - DB_PORT=5432 # PostgreSQL
+      # - DB_PORT=3306 # MariaDB, MySQL
+      - DB_NAME=postgres # PostgreSQL
+      # - DB_NAME=mysql # MariaDB, MySQL
+    working_dir: /my_project
+    volumes:
+      - .:/my_project
+    command: >
+      bash -c "pip install -r requirements.txt && export PYTHONPATH=$$PWD && python setup/db_init.py && gunicorn --bind 0.0.0.0:5000 app:app --preload"
+  brocker:
+    image: rabbitmq:3.10.7
+    # image: rabbitmq:3.10.7-management
+    container_name: RabbitMQ
+    restart: always
+    networks:
+      - net
+    ports:
+      - 5672:5672
+      # - 15672:15672
+      # brocker:
+      #   image: redis:7.0.4
+      #   container_name: Redis
+      #   restart: always
+      #   networks:
+      #     - net
+      #   ports:
+      #     - 6379:6379
+  worker:
+    image: python:3.9.7
+    container_name: Celery
+    restart: always
+    depends_on:
+      - server
+      - brocker
+      - db
+    networks:
+      - net
+    env_file:
+      - .env
+    environment:
+      # ---------- AMQP ----------
+      - AMQP_SERVER=amqp # RabbitMQ
+      # - AMQP_SERVER=redis # Redis
+      - AMQP_USER=guest # RabbitMQ
+      # - AMQP_USER=default # Redis
+      - AMQP_PASSWORD=guest # RabbitMQ
+      # - AMQP_PASSWORD= # Redis
+      - AMQP_HOST=brocker # RabbitMQ, Redis
+      - AMQP_PORT=5672 # RabbitMQ
+      # - AMQP_PORT=6379 # Redis
+      - AMQP_DB= # RabbitMQ
+      # - AMQP_DB=0 # Redis
+      # ---------- DB ----------
+      - DB_SERVER=postgresql # PostgreSQL
+      # - DB_SERVER=mysql+pymysql # MariaDB, MySQL
+      - DB_USER=postgres # PostgreSQL
+      # - DB_USER=root # MariaDB, MySQL
+      - DB_PASSWORD=rootroot # PostgreSQL, MariaDB, MySQL
+      - DB_HOST=db # PostgreSQL, MariaDB, MySQL
+      - DB_PORT=5432 # PostgreSQL
+      # - DB_PORT=3306 # MariaDB, MySQL
+      - DB_NAME=postgres # PostgreSQL
+      # - DB_NAME=mysql # MariaDB, MySQL
+    working_dir: /my_project
+    volumes:
+      - .:/my_project:ro
+    command: bash -c "pip install -r requirements.txt && celery -A tasks.celery_app worker -l info"
+  db:
+    image: postgres:14.4
+    container_name: PostgreSQL
+    restart: always
+    networks:
+      - net
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=rootroot
+  # db:
+  #   image: mariadb:10.7.4
+  #   container_name: MariaDB
+  #   restart: always
+  #   networks:
+  #     - net
+  #   ports:
+  #     - 3306:3306
+  #   environment:
+  #     - MARIADB_ROOT_PASSWORD=rootroot
+
+networks:
+  net:
+    name: mynet
+    driver: bridge

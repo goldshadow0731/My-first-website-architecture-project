@@ -1,0 +1,23 @@
+# System
+.DS_Store
+
+# ENV
+.env
+
+# Python
+**/__pycache__
+
+# pytest
+.pytest_cache
+.coverage
+htmlcov
+
+# venv
+venv
+Pipfile
+Pipfile.lock
+pyproject.toml
+poetry.lock
+
+# Log
+Log
